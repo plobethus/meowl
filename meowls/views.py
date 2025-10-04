@@ -2,11 +2,10 @@ from io import BytesIO
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Q
 from django.http import (
-    Http404,
     HttpResponseForbidden,
     FileResponse,
 )
@@ -23,10 +22,14 @@ from .models import (
     MeowlLocation,
     LocationVerification,
     PointsLedger,
+    AuditLog,
 )
 from .pdf import build_meowl_pdf
 from .utils import leaderboard as leaderboard_qs
 from .tokens import check_qr_token
+
+
+User = get_user_model()
 
 
 # ---------- helpers
@@ -56,6 +59,9 @@ def _hash_ip(ip: str) -> str:
         return ""
     return hashlib.sha256(ip.encode("utf-8")).hexdigest()
 
+def _is_superuser(user):
+    return user.is_superuser
+
 
 # ---------- public views
 
@@ -67,7 +73,7 @@ def meowl_index(request):
 
 def meowl_detail(request, slug):
     """
-    Detail/comments require a valid QR token (non-staff).
+    Detail/comments require a valid QR token for non-staff users.
     """
     meowl = get_object_or_404(Meowl, slug=slug)
     _attach_latlng(meowl)
@@ -76,10 +82,7 @@ def meowl_detail(request, slug):
         token = request.GET.get("t", "")
         valid_slug = check_qr_token(token) if token else None
         if valid_slug != slug:
-            messages.error(
-                request,
-                "This page is only accessible by scanning the Meowl’s QR code."
-            )
+            messages.error(request, "This page is only accessible by scanning the Meowl’s QR code.")
             return redirect("meowls:index")
 
     if request.method == "POST":
@@ -87,10 +90,14 @@ def meowl_detail(request, slug):
             return HttpResponseForbidden("Log in to comment.")
         form = CommentForm(request.POST)
         if form.is_valid():
-            Comment.objects.create(
+            comment = Comment.objects.create(
                 meowl=meowl,
                 user=request.user,
                 text=form.cleaned_data["text"],
+            )
+            AuditLog.objects.create(
+                actor=request.user, action="comment.create", meowl=meowl, comment=comment,
+                detail=f"Comment #{comment.id} created"
             )
             messages.success(request, "Comment posted.")
             return redirect("meowls:detail", slug=meowl.slug)
@@ -161,10 +168,9 @@ def pdf_preview(request, slug):
     is_owner = request.user.is_authenticated and request.user == meowl.owner
     if not (request.user.is_staff or is_owner):
         return HttpResponseForbidden("Only staff or the owner can view the PDF.")
-    # Pass flags for nicer messaging in the template
     return render(request, "meowls/pdf_preview.html", {"meowl": meowl, "is_owner": is_owner})
 
-@xframe_options_sameorigin  # allow embedding this PDF from our own site (base setting is DENY)
+@xframe_options_sameorigin
 def pdf_download(request, slug):
     meowl = get_object_or_404(Meowl, slug=slug)
     if not (request.user.is_staff or request.user == meowl.owner):
@@ -193,11 +199,29 @@ def hide_comment(request, pk):
     comment.hidden_at = timezone.now()
     comment.hidden_by = request.user
     comment.hidden_reason = reason[:255]
-    comment.save(
-        update_fields=["is_hidden", "hidden_at", "hidden_by", "hidden_reason"]
+    comment.save(update_fields=["is_hidden", "hidden_at", "hidden_by", "hidden_reason"])
+    AuditLog.objects.create(
+        actor=request.user, action="comment.hide", comment=comment, meowl=comment.meowl,
+        detail=f"Hidden with reason: {reason}"
     )
     messages.success(request, "Comment hidden.")
-    return redirect("meowls:detail", slug=comment.meowl.slug)
+    return redirect("meowls:staff_dashboard")
+
+@user_passes_test(_staff_check)
+@require_POST
+def unhide_comment(request, pk):
+    comment = get_object_or_404(Comment, pk=pk)
+    comment.is_hidden = False
+    comment.hidden_at = None
+    comment.hidden_by = None
+    comment.hidden_reason = ""
+    comment.save(update_fields=["is_hidden", "hidden_at", "hidden_by", "hidden_reason"])
+    AuditLog.objects.create(
+        actor=request.user, action="comment.unhide", comment=comment, meowl=comment.meowl,
+        detail="Comment unhidden"
+    )
+    messages.success(request, "Comment unhidden.")
+    return redirect("meowls:staff_dashboard")
 
 
 # ---------- leaderboard
@@ -217,21 +241,37 @@ def leaderboard(request):
 
 @user_passes_test(_staff_check)
 def staff_dashboard(request):
-    qs = Meowl.objects.all().order_by("name")
+    # Meowls with simple counts
     meowls = []
-    for m in qs:
+    for m in Meowl.objects.all().order_by("name"):
         _attach_latlng(m)
         meowls.append(m)
 
-    counts = (
-        Comment.objects.values("meowl_id")
-        .annotate(total=Count("id"))
-    )
+    counts = Comment.objects.values("meowl_id").annotate(total=Count("id"))
     counts_map = {row["meowl_id"]: row["total"] for row in counts}
+
+    # Users list for superusers to promote/demote
+    users = User.objects.all().order_by("-is_staff", "username")
+
+    # Recently visible comments (plus hidden ones for context)
+    recent_comments = (
+        Comment.objects.select_related("user", "meowl")
+        .order_by("-created_at")[:50]
+    )
+
+    # Recent audit log
+    logs = AuditLog.objects.select_related("actor", "target_user", "meowl", "comment")[:100]
+
     return render(
         request,
         "meowls/admin_dashboard.html",
-        {"meowls": meowls, "counts": counts_map},
+        {
+            "meowls": meowls,
+            "counts": counts_map,
+            "users": users,
+            "recent_comments": recent_comments,
+            "logs": logs,
+        },
     )
 
 @user_passes_test(_staff_check)
@@ -242,6 +282,7 @@ def archive_meowl(request, slug):
         meowl.archived_at = timezone.now()
         meowl.archived_by = request.user
         meowl.save(update_fields=["is_archived", "archived_at", "archived_by"])
+        AuditLog.objects.create(actor=request.user, action="meowl.archive", meowl=meowl, detail="Archived")
         messages.success(request, f"Archived {meowl.name}.")
     return redirect("meowls:staff_dashboard")
 
@@ -253,11 +294,12 @@ def unarchive_meowl(request, slug):
         meowl.archived_at = None
         meowl.archived_by = None
         meowl.save(update_fields=["is_archived", "archived_at", "archived_by"])
+        AuditLog.objects.create(actor=request.user, action="meowl.unarchive", meowl=meowl, detail="Unarchived")
         messages.success(request, f"Unarchived {meowl.name}.")
     return redirect("meowls:staff_dashboard")
 
 
-# ---------- create meowl (simple)
+# ---------- create meowl (public, logged-in)
 
 @login_required
 def meowl_create(request):
@@ -304,6 +346,7 @@ def meowl_create(request):
             points=getattr(settings, "POINTS_CREATE", 25),
             reason="create",
         )
+        AuditLog.objects.create(actor=request.user, action="meowl.create", meowl=m, detail=f"Created {m.slug}")
         messages.success(request, "Meowl created (+25).")
         return redirect("meowls:pdf_preview", slug=m.slug)
 
@@ -325,3 +368,29 @@ def signup(request):
     else:
         form = SignupForm()
     return render(request, "registration/signup.html", {"form": form})
+
+
+# ---------- superuser-only: promote/demote staff
+
+@user_passes_test(_is_superuser)
+@require_POST
+def promote_user(request, user_id):
+    target = get_object_or_404(User, id=user_id)
+    if not target.is_staff:
+        target.is_staff = True
+        target.save(update_fields=["is_staff"])
+        AuditLog.objects.create(actor=request.user, action="user.promote", target_user=target, detail="Promoted to staff")
+        messages.success(request, f"Promoted {target.username} to staff.")
+    return redirect("meowls:staff_dashboard")
+
+@user_passes_test(_is_superuser)
+@require_POST
+def demote_user(request, user_id):
+    target = get_object_or_404(User, id=user_id)
+    # Never demote yourself if you're the only superuser—guard optional
+    if target.is_staff:
+        target.is_staff = False
+        target.save(update_fields=["is_staff"])
+        AuditLog.objects.create(actor=request.user, action="user.demote", target_user=target, detail="Demoted from staff")
+        messages.success(request, f"Demoted {target.username} from staff.")
+    return redirect("meowls:staff_dashboard")

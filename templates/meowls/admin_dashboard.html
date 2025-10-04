@@ -1,33 +1,193 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
-  <h1>Meowls — Staff Dashboard</h1>
-  <table class="table">
-    <thead>
-      <tr><th>Name</th><th>Slug</th><th>Archived</th><th>Comments</th><th>Actions</th></tr>
-    </thead>
-    <tbody>
-      {% for m in meowls %}
-        <tr>
-          <td><a href="{% url 'meowls:detail' m.slug %}">{{ m.name }}</a></td>
-          <td>{{ m.slug }}</td>
-          <td>{% if m.archived %}Yes{% else %}No{% endif %}</td>
-          <td>{{ m.comment_set.count }}</td>
-          <td>
-            {% if not m.archived %}
-              <a class="btn btn-small" href="{% url 'meowls:archive_meowl' m.slug %}">Archive</a>
-            {% else %}
-              <a class="btn btn-small" href="{% url 'meowls:unarchive_meowl' m.slug %}">Unarchive</a>
-            {% endif %}
-            {% if user.is_staff %}
-              <a class="btn btn-small" href="{% url 'meowls:pdf_preview' m.slug %}">PDF</a>
-            {% endif %}
-          </td>
-        </tr>
-      {% empty %}
-        <tr><td colspan="5"><em>No Meowls yet.</em></td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <h1>Staff Dashboard</h1>
+
+  {% if messages %}
+    {% for m in messages %}
+      <div class="flash {{ m.tags }}">{{ m }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 24px;">
+    <!-- Left column -->
+    <div>
+      <section class="card">
+        <h2>Meowls</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Slug</th>
+              <th>Owner</th>
+              <th>Comments</th>
+              <th>Status</th>
+              <th style="width: 220px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in meowls %}
+              <tr>
+                <td>{{ m.name }}</td>
+                <td>{{ m.slug }}</td>
+                <td>{{ m.owner.username }}</td>
+                <td>{{ counts|get_item:m.id|default:0 }}</td>
+                <td>
+                  {% if m.is_archived %}
+                    <span class="muted">Archived</span>
+                  {% else %}
+                    Active
+                  {% endif %}
+                </td>
+                <td>
+                  {% if m.is_archived %}
+                    <form method="post" action="{% url 'meowls:unarchive_meowl' m.slug %}" style="display:inline;">
+                      {% csrf_token %}
+                      <button class="btn btn-small">Unarchive</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{% url 'meowls:archive_meowl' m.slug %}" style="display:inline;">
+                      {% csrf_token %}
+                      <button class="btn btn-small">Archive</button>
+                    </form>
+                  {% endif %}
+                  <a class="btn btn-small outline" href="{% url 'meowls:pdf_preview' m.slug %}" target="_blank">PDF</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6"><em>No Meowls yet.</em></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" style="margin-top:24px;">
+        <h2>Recent Comments</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Meowl</th>
+              <th>Text</th>
+              <th>Status</th>
+              <th style="width: 200px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in recent_comments %}
+              <tr>
+                <td>#{{ c.id }}</td>
+                <td>{{ c.user.username }}</td>
+                <td>{{ c.meowl.slug }}</td>
+                <td style="max-width: 420px; overflow-wrap: anywhere;">{{ c.text }}</td>
+                <td>
+                  {% if c.is_hidden %}
+                    <span class="muted">Hidden</span>
+                  {% else %}
+                    Visible
+                  {% endif %}
+                </td>
+                <td>
+                  {% if c.is_hidden %}
+                    <form method="post" action="{% url 'meowls:unhide_comment' c.id %}" style="display:inline;">
+                      {% csrf_token %}
+                      <button class="btn btn-small">Unhide</button>
+                    </form>
+                  {% else %}
+                    <form method="post" action="{% url 'meowls:hide_comment' c.id %}" style="display:inline;">
+                      {% csrf_token %}
+                      <input type="text" name="reason" placeholder="Reason (optional)" maxlength="200" style="width:180px;">
+                      <button class="btn btn-small">Hide</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6"><em>No comments.</em></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="card" style="margin-top:24px;">
+        <h2>Audit Log</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Target</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+              <tr>
+                <td>{{ log.created_at|date:"Y-m-d H:i" }}</td>
+                <td>{{ log.actor.username|default:"(system)" }}</td>
+                <td>{{ log.action }}</td>
+                <td>
+                  {% if log.target_user %}user={{ log.target_user.username }} {% endif %}
+                  {% if log.meowl %}meowl={{ log.meowl.slug }} {% endif %}
+                  {% if log.comment_id %}comment=#{{ log.comment_id }}{% endif %}
+                </td>
+                <td style="max-width: 480px; overflow-wrap: anywhere;">{{ log.detail }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5"><em>No log entries yet.</em></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- Right column -->
+    <aside>
+      <section class="card">
+        <h2>Users</h2>
+        <p class="muted">Only superusers can change staff status.</p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Staff?</th>
+              <th>Superuser?</th>
+              <th style="width: 180px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users %}
+              <tr>
+                <td>{{ u.username }}</td>
+                <td>{{ u.is_staff|yesno:"Yes,No" }}</td>
+                <td>{{ u.is_superuser|yesno:"Yes,No" }}</td>
+                <td>
+                  {% if request.user.is_superuser %}
+                    {% if u.is_staff %}
+                      <form method="post" action="{% url 'meowls:demote_user' u.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button class="btn btn-small">Demote</button>
+                      </form>
+                    {% else %}
+                      <form method="post" action="{% url 'meowls:promote_user' u.id %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button class="btn btn-small">Promote</button>
+                      </form>
+                    {% endif %}
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4"><em>No users?</em></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    </aside>
+  </div>
 </div>
 {% endblock %}
