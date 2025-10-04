@@ -30,10 +30,12 @@ def meowl_index(request):
     meowls = (
         Meowl.objects
         .select_related("owner")
-        .filter(is_archived=False)   # <--- hide archived
+        .filter(is_archived=False)           # hide archived ones
+        .annotate(last_scan=Max("scan__created_at"))  # add last scan timestamp
         .order_by("name")
     )
     return render(request, "meowls/index.html", {"meowls": meowls})
+
 
 
 

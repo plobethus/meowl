@@ -65,10 +65,7 @@
       <div class="card">
         <h3>Actions</h3>
         {% if user.is_authenticated %}
-          <form method="post" action="{% url 'meowls:scan' meowl.slug %}">
-            {% csrf_token %}
-            <button class="btn">I scanned this Meowl (+5)</button>
-          </form>
+          <p>I love meowl!</p>
         {% else %}
           <a class="btn" href="/accounts/login/?next={{ request.path }}">Log in to scan</a>
         {% endif %}
