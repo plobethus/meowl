@@ -2,8 +2,35 @@
 {% block content %}
 <div class="container">
   <h1>PDF for {{ meowl.name }}</h1>
-  <p>This page is <strong>staff-only</strong>. Do not share PDFs publicly.</p>
-  <a class="btn" href="{% url 'meowls:pdf_download' meowl.slug %}">Download PDF</a>
-  <iframe src="{% url 'meowls:pdf_download' meowl.slug %}" style="width:100%; height:80vh; border:1px solid #ccc; margin-top:12px;"></iframe>
+
+  {% if is_owner and not user.is_staff %}
+    <p>This page is visible to <strong>you (the owner)</strong> and staff.</p>
+  {% elif user.is_staff and not is_owner %}
+    <p>This page is visible to <strong>staff</strong> (owner can also access).</p>
+  {% else %}
+    <p>This page is visible to <strong>you</strong> and staff.</p>
+  {% endif %}
+
+  <div style="margin: 16px 0;">
+    <a class="btn" href="{% url 'meowls:pdf_download' meowl.slug %}" target="_blank" rel="noopener">
+      Download / Open PDF
+    </a>
+    <p class="muted" style="margin-top:8px;">
+      If your browser blocks the inline preview, use the button to open the PDF in a new tab and print it.
+    </p>
+  </div>
+
+  <!-- Optional inline preview (may be blocked by some browsers). We set SAMEORIGIN for this view. -->
+  <div style="border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
+    <iframe
+      src="{% url 'meowls:pdf_download' meowl.slug %}"
+      style="width: 100%; height: 70vh; border: 0;"
+      title="PDF preview for {{ meowl.name }}"
+    ></iframe>
+  </div>
+
+  <div style="margin-top: 16px;">
+    <a class="btn outline" href="{% url 'meowls:index' %}">Back to Meowls</a>
+  </div>
 </div>
 {% endblock %}

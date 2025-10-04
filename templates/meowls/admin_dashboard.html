@@ -12,7 +12,7 @@
           <td><a href="{% url 'meowls:detail' m.slug %}">{{ m.name }}</a></td>
           <td>{{ m.slug }}</td>
           <td>{% if m.archived %}Yes{% else %}No{% endif %}</td>
-          <td>{{ counts.m.id|default:0 }}</td>
+          <td>{{ m.comment_set.count }}</td>
           <td>
             {% if not m.archived %}
               <a class="btn btn-small" href="{% url 'meowls:archive_meowl' m.slug %}">Archive</a>

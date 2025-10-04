@@ -5,7 +5,7 @@
   <div class="cards">
     {% for m in meowls %}
       <div class="card">
-        <h3><a href="{% url 'meowls:detail' m.slug %}">{{ m.name }}</a></h3>
+        <h3>{{ m.name }}</h3>  {# ← no link to detail page #}
         <p>{{ m.description|default:"" }}</p>
         <p class="muted">Last seen:
           {% if m.lat and m.lng %} ({{ m.lat }}, {{ m.lng }}) {% else %} unknown {% endif %}

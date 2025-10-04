@@ -33,7 +33,7 @@
       {% if user.is_authenticated %}
         <form method="post">
           {% csrf_token %}
-          {{ form.body }}
+          {{ form.text }}
           <div style="margin-top:8px;">
             <button class="btn">Post</button>
           </div>
@@ -45,8 +45,8 @@
       <ul class="comment-list">
         {% for c in comments %}
           <li>
-            <div><strong>{{ c.author.username }}</strong> · {{ c.created_at|date:"Y-m-d H:i" }}</div>
-            <div>{{ c.body|linebreaksbr }}</div>
+            <div><strong>{{ c.user.username }}</strong> · {{ c.created_at|date:"Y-m-d H:i" }}</div>
+            <div>{{ c.text|linebreaksbr }}</div>
             {% if user.is_staff %}
             <form method="post" action="{% url 'meowls:hide_comment' c.id %}" style="margin-top:6px;">
               {% csrf_token %}
@@ -87,8 +87,6 @@
 </div>
 
 {% if meowl.lat and meowl.lng %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const map = L.map('map', { zoomControl: true }).setView([{{ meowl.lat }}, {{ meowl.lng }}], 15);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: "&copy; OSM" }).addTo(map);
