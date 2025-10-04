@@ -1,51 +1,98 @@
-{% if request.user.is_authenticated and request.user.is_staff %}
-  <hr>
-  <h3>Moderation</h3>
-  {% if not meowl.is_archived %}
-    <form method="post" action="{% url 'meowls:archive_meowl' meowl.slug %}">{% csrf_token %}
-      <input name="reason" placeholder="Reason to archive" required>
-      <button class="btn" type="submit">Archive Meowl</button>
-    </form>
-  {% else %}
-    <form method="post" action="{% url 'meowls:unarchive_meowl' meowl.slug %}">{% csrf_token %}
-      <button class="btn" type="submit">Unarchive Meowl</button>
-    </form>
-    <p><small>Archived by {{ meowl.archived_by }} — {{ meowl.archived_reason }}</small></p>
-  {% endif %}
-{% endif %}
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="container">
+  <h1>{{ meowl.name }}</h1>
 
+  <div class="grid">
+    <div>
+      <p>{{ meowl.description }}</p>
 
+      <h3>Location</h3>
+      {% if meowl.lat and meowl.lng %}
+        <p>
+          <strong>Lat:</strong> {{ meowl.lat }} &nbsp;
+          <strong>Lng:</strong> {{ meowl.lng }}
+        </p>
+        <div id="map" style="height: 320px; border-radius: 8px;"></div>
+      {% else %}
+        <p><em>No location set yet.</em></p>
+      {% endif %}
 
-<h3>Comments</h3>
-<!-- existing comment form/list -->
-<ul class="list">
-  {% for c in meowl.comments.all|slice:":50" %}
-    {% if not c.is_hidden or request.user.is_staff %}
-      <li>
-        <strong>{{ c.user.username }}</strong> — {{ c.text }}
-        {% if c.is_hidden %}<em>(hidden by {{ c.hidden_by }}: {{ c.hidden_reason }})</em>{% endif %}
-        {% if request.user.is_authenticated and request.user.is_staff and not c.is_hidden %}
-          <form method="post" action="{% url 'meowls:hide_comment' c.id %}" style="display:inline;">{% csrf_token %}
-            <input name="reason" placeholder="Reason" required>
-            <button class="btn" type="submit">Hide</button>
+      {% if pending_move %}
+        <p class="notice">A location change is pending verification.</p>
+        <form method="post" action="{% url 'meowls:verify' meowl.slug %}">
+          {% csrf_token %}
+          <button class="btn">I found it here — verify move (+10)</button>
+        </form>
+      {% endif %}
+
+      <hr>
+
+      <h3>Comments</h3>
+      {% if user.is_authenticated %}
+        <form method="post">
+          {% csrf_token %}
+          {{ form.body }}
+          <div style="margin-top:8px;">
+            <button class="btn">Post</button>
+          </div>
+        </form>
+      {% else %}
+        <p><a href="/accounts/login/?next={{ request.path }}">Log in</a> to comment.</p>
+      {% endif %}
+
+      <ul class="comment-list">
+        {% for c in comments %}
+          <li>
+            <div><strong>{{ c.author.username }}</strong> · {{ c.created_at|date:"Y-m-d H:i" }}</div>
+            <div>{{ c.body|linebreaksbr }}</div>
+            {% if user.is_staff %}
+            <form method="post" action="{% url 'meowls:hide_comment' c.id %}" style="margin-top:6px;">
+              {% csrf_token %}
+              <input type="text" name="reason" placeholder="Reason (optional)" maxlength="200" style="width:60%;">
+              <button class="btn btn-small">Hide</button>
+            </form>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li><em>No comments yet.</em></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <aside>
+      <div class="card">
+        <h3>Actions</h3>
+        {% if user.is_authenticated %}
+          <form method="post" action="{% url 'meowls:scan' meowl.slug %}">
+            {% csrf_token %}
+            <button class="btn">I scanned this Meowl (+5)</button>
           </form>
+        {% else %}
+          <a class="btn" href="/accounts/login/?next={{ request.path }}">Log in to scan</a>
         {% endif %}
-      </li>
-    {% endif %}
-  {% endfor %}
-</ul>
 
-{% if current_loc %}
-  <h3>Current location</h3>
-  <div id="map" style="height: 280px; border-radius: 8px; margin-bottom: 8px;"></div>
-  <script>
-    (function() {
-      const lat={{ current_loc.lat }}, lng={{ current_loc.lng }};
-      const map = L.map('map').setView([lat, lng], 15);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19, attribution: '&copy; OpenStreetMap'
-      }).addTo(map);
-      L.marker([lat, lng]).addTo(map);
-    })();
-  </script>
+        {% if user.is_staff %}
+          <hr>
+          <a class="btn" href="{% url 'meowls:pdf_preview' meowl.slug %}">PDF (staff)</a>
+        {% endif %}
+
+        {% if meowl.archived %}
+          <p class="muted">This Meowl is archived.</p>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+</div>
+
+{% if meowl.lat and meowl.lng %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map', { zoomControl: true }).setView([{{ meowl.lat }}, {{ meowl.lng }}], 15);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: "&copy; OSM" }).addTo(map);
+  L.marker([{{ meowl.lat }}, {{ meowl.lng }}]).addTo(map);
+</script>
 {% endif %}
+{% endblock %}

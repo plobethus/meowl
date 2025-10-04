@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+  <h1>Meowls — Staff Dashboard</h1>
+  <table class="table">
+    <thead>
+      <tr><th>Name</th><th>Slug</th><th>Archived</th><th>Comments</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for m in meowls %}
+        <tr>
+          <td><a href="{% url 'meowls:detail' m.slug %}">{{ m.name }}</a></td>
+          <td>{{ m.slug }}</td>
+          <td>{% if m.archived %}Yes{% else %}No{% endif %}</td>
+          <td>{{ counts.m.id|default:0 }}</td>
+          <td>
+            {% if not m.archived %}
+              <a class="btn btn-small" href="{% url 'meowls:archive_meowl' m.slug %}">Archive</a>
+            {% else %}
+              <a class="btn btn-small" href="{% url 'meowls:unarchive_meowl' m.slug %}">Unarchive</a>
+            {% endif %}
+            {% if user.is_staff %}
+              <a class="btn btn-small" href="{% url 'meowls:pdf_preview' m.slug %}">PDF</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5"><em>No Meowls yet.</em></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

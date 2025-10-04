@@ -23,6 +23,8 @@
       <a class="link" href="/meowls/leaderboard/">Leaderboard</a>
       <a class="btn" href="/accounts/login/">Log in</a>
       <a class="btn outline" href="{% url 'meowls:signup' %}">Sign up</a>
+    {% if user.is_staff %}
+     <a href="{% url 'meowls:staff_dashboard' %}">Staff</a>
     {% endif %}
   </header>
 
