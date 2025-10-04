@@ -113,3 +113,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 if SITE_URL.startswith("https://"):
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+
+# Email config for Mailjet
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "in-v3.mailjet.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv("MAILJET_API_KEY")       # your Mailjet API key
+EMAIL_HOST_PASSWORD = os.getenv("MAILJET_SECRET_KEY") # your Mailjet secret key
+DEFAULT_FROM_EMAIL = "Meowl <no-reply@plobethus.com>"

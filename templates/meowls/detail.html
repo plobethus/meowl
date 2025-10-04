@@ -33,7 +33,7 @@
       {% if user.is_authenticated %}
         <form method="post">
           {% csrf_token %}
-          {{ form.text }}
+          {{ comment_form.text }}
           <div style="margin-top:8px;">
             <button class="btn">Post</button>
           </div>
@@ -73,12 +73,15 @@
           <a class="btn" href="/accounts/login/?next={{ request.path }}">Log in to scan</a>
         {% endif %}
 
-        {% if user.is_staff %}
-          <hr>
-          <a class="btn" href="{% url 'meowls:pdf_preview' meowl.slug %}">PDF (staff)</a>
+        {# No parentheses in Django if-tags; nest instead #}
+        {% if user.is_authenticated %}
+          {% if user.is_staff or user.pk == meowl.owner_id %}
+            <hr>
+            <a class="btn" href="{% url 'meowls:pdf_preview' meowl.slug %}">PDF</a>
+          {% endif %}
         {% endif %}
 
-        {% if meowl.archived %}
+        {% if meowl.is_archived %}
           <p class="muted">This Meowl is archived.</p>
         {% endif %}
       </div>

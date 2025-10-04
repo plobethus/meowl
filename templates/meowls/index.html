@@ -5,13 +5,22 @@
   <div class="cards">
     {% for m in meowls %}
       <div class="card">
-        <h3>{{ m.name }}</h3>  {# ← no link to detail page #}
+        <h3>{{ m.name }}</h3>  {# no link to detail page #}
         <p>{{ m.description|default:"" }}</p>
-        <p class="muted">Last seen:
-          {% if m.lat and m.lng %} ({{ m.lat }}, {{ m.lng }}) {% else %} unknown {% endif %}
+
+        <p class="muted">
+          Last scanned:
+          {% if m.last_scan %}
+            {{ m.last_scan|date:"Y-m-d H:i" }}
+          {% else %}
+            never
+          {% endif %}
         </p>
+
         {% if user.is_staff %}
-          <div><a class="btn btn-small" href="{% url 'meowls:pdf_preview' m.slug %}">PDF (staff)</a></div>
+          <div>
+            <a class="btn btn-small" href="{% url 'meowls:pdf_preview' m.slug %}">PDF (staff)</a>
+          </div>
         {% endif %}
       </div>
     {% empty %}

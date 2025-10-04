@@ -46,7 +46,7 @@ class PointsLedgerAdmin(admin.ModelAdmin):
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ("id", "created_at", "actor", "action", "target_user", "meowl", "comment")
+    list_display = ("id", "created_at", "actor", "action", "target_user", "meowl", "comment_id")
     list_filter = ("action",)
     search_fields = ("actor__username", "target_user__username", "meowl__slug")
     readonly_fields = ("created_at",)
