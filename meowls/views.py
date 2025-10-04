@@ -28,11 +28,13 @@ User = get_user_model()
 
 def meowl_index(request):
     meowls = (
-        Meowl.objects.select_related("owner")
-        .annotate(last_scan=Max("scan__created_at"))  # <-- use 'scan__created_at'
+        Meowl.objects
+        .select_related("owner")
+        .filter(is_archived=False)   # <--- hide archived
         .order_by("name")
     )
     return render(request, "meowls/index.html", {"meowls": meowls})
+
 
 
 @login_required

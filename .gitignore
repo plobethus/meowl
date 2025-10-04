@@ -1,3 +1,4 @@
 flatten_files.py
 .env
 db.sqlite3
+deployment.md
