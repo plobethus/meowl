@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Meowl PDF — {{ meowl.name }}{% endblock %}
+{% block content %}
+<h1>{{ meowl.name }} — PDF</h1>
+<p>
+  <a class="btn" href="{% url 'meowls:pdf_download' meowl.slug %}">Download PDF</a>
+  <a class="link" href="{% url 'meowls:detail' meowl.slug %}">Go to page</a>
+</p>
+<object data="{% url 'meowls:pdf' meowl.slug %}" type="application/pdf" width="100%" height="800px">
+  <p>PDF preview not supported in your browser. Use the “Download PDF” button above.</p>
+</object>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Create Meowl{% endblock %}
+{% block content %}
+<h1>Create a Meowl</h1>
+<form method="post">{% csrf_token %}
+  <p><label>Name<br><input name="name" required></label></p>
+  <p><label>Description<br><textarea name="description" rows="3"></textarea></label></p>
+
+  <p><strong>Pick a location on the University of Houston map</strong></p>
+  <div id="map" style="height: 320px; border-radius: 8px; margin-bottom: 8px;"></div>
+
+  <div class="grid two">
+    <p><label>Latitude<br><input id="lat" name="lat" required></label></p>
+    <p><label>Longitude<br><input id="lng" name="lng" required></label></p>
+  </div>
+
+  <button class="btn" type="submit">Create</button>
+</form>
+
+<script>
+(function() {
+  // UH main campus bounds
+  const CENTER = [29.7199, -95.3422];
+  const SW = [29.7075, -95.3580], NE = [29.7308, -95.3270];
+  const BOUNDS = L.latLngBounds(SW, NE);
+
+  const map = L.map('map', { maxBounds: BOUNDS, maxBoundsViscosity: 1.0 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  map.fitBounds(BOUNDS, { padding: [10,10] });
+  map.setView(CENTER, 15);
+  map.on('drag', function() { map.panInsideBounds(BOUNDS, { animate: false }); });
+
+  let marker = null;
+  function setMarker(lat, lng) {
+    if (marker) { marker.setLatLng([lat,lng]); }
+    else { marker = L.marker([lat,lng], {draggable:true}).addTo(map);
+           marker.on('dragend', () => {
+              const p = marker.getLatLng();
+              document.getElementById('lat').value = p.lat.toFixed(6);
+              document.getElementById('lng').value = p.lng.toFixed(6);
+           });
+    }
+  }
+
+  map.on('click', function(e) {
+    if (!BOUNDS.contains(e.latlng)) return;
+    const lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
+    document.getElementById('lat').value = lat;
+    document.getElementById('lng').value = lng;
+    setMarker(lat, lng);
+  });
+
+  document.getElementById('lat').value = CENTER[0].toFixed(6);
+  document.getElementById('lng').value = CENTER[1].toFixed(6);
+  setMarker(CENTER[0], CENTER[1]);
+})();
+</script>
+{% endblock %}

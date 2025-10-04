@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    /* Full-bleed page with tiny footer */
+    @page { size: A4; margin: 0; }
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* Reserve a small footer; everything else is the image */
+    .hero {
+      flex: 1 1 auto;
+      width: 100%;
+      height: calc(100vh - 28mm); /* page height minus footer */
+      object-fit: cover;           /* cover the page area */
+    }
+    .footer {
+      height: 28mm;               /* small footer */
+      padding: 0 14mm 12mm 14mm;  /* some inner spacing */
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;  /* QR at bottom-right */
+    }
+    .qr { width: 26mm; height: 26mm; }
+  </style>
+</head>
+<body>
+  {% load qr %}
+  <!-- Full-page image -->
+  <img class="hero" src="{{ header_image }}">
+
+  <!-- Tiny footer: only the QR (no name/description) -->
+  <div class="footer">
+    <img class="qr" src="data:image/png;base64,{{ ''|qr_b64:qr_url }}">
+  </div>
+</body>
+</html>

@@ -1,0 +1,51 @@
+{% if request.user.is_authenticated and request.user.is_staff %}
+  <hr>
+  <h3>Moderation</h3>
+  {% if not meowl.is_archived %}
+    <form method="post" action="{% url 'meowls:archive_meowl' meowl.slug %}">{% csrf_token %}
+      <input name="reason" placeholder="Reason to archive" required>
+      <button class="btn" type="submit">Archive Meowl</button>
+    </form>
+  {% else %}
+    <form method="post" action="{% url 'meowls:unarchive_meowl' meowl.slug %}">{% csrf_token %}
+      <button class="btn" type="submit">Unarchive Meowl</button>
+    </form>
+    <p><small>Archived by {{ meowl.archived_by }} — {{ meowl.archived_reason }}</small></p>
+  {% endif %}
+{% endif %}
+
+
+
+<h3>Comments</h3>
+<!-- existing comment form/list -->
+<ul class="list">
+  {% for c in meowl.comments.all|slice:":50" %}
+    {% if not c.is_hidden or request.user.is_staff %}
+      <li>
+        <strong>{{ c.user.username }}</strong> — {{ c.text }}
+        {% if c.is_hidden %}<em>(hidden by {{ c.hidden_by }}: {{ c.hidden_reason }})</em>{% endif %}
+        {% if request.user.is_authenticated and request.user.is_staff and not c.is_hidden %}
+          <form method="post" action="{% url 'meowls:hide_comment' c.id %}" style="display:inline;">{% csrf_token %}
+            <input name="reason" placeholder="Reason" required>
+            <button class="btn" type="submit">Hide</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endif %}
+  {% endfor %}
+</ul>
+
+{% if current_loc %}
+  <h3>Current location</h3>
+  <div id="map" style="height: 280px; border-radius: 8px; margin-bottom: 8px;"></div>
+  <script>
+    (function() {
+      const lat={{ current_loc.lat }}, lng={{ current_loc.lng }};
+      const map = L.map('map').setView([lat, lng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+      L.marker([lat, lng]).addTo(map);
+    })();
+  </script>
+{% endif %}

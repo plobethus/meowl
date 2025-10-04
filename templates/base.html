@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Meowl{% endblock %}</title>
+  <link rel="stylesheet" href="/static/site.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="/meowls/">🐾 Meowl</a>
+    <nav class="grow"></nav>
+    {% if request.user.is_authenticated %}
+      <span class="hello">Hi, {{ request.user.username }}</span>
+      <a class="link" href="/meowls/create/">Create</a>
+      <a class="link" href="/meowls/leaderboard/">Leaderboard</a>
+      <a class="link" href="/meowls/logout/">Logout</a>
+    {% else %}
+      <a class="link" href="/meowls/leaderboard/">Leaderboard</a>
+      <a class="btn" href="/accounts/login/">Log in</a>
+      <a class="btn outline" href="{% url 'meowls:signup' %}">Sign up</a>
+    {% endif %}
+  </header>
+
+  <main class="container">
+    {% for m in messages %}
+      <div class="flash {{ m.tags }}">{{ m }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

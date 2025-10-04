@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Meowls{% endblock %}
+
+{% block content %}
+<h1>Meowls</h1>
+
+<div class="row" style="margin-bottom:12px;">
+  {% if request.user.is_authenticated %}
+    <a class="btn" href="{% url 'meowls:create' %}">Create Meowl</a>
+  {% else %}
+    <p class="muted">Log in to create a Meowl.</p>
+  {% endif %}
+</div>
+
+{% if meowls %}
+  <div class="list">
+    {% for m in meowls %}
+      <div class="card">
+        <div class="card-head">
+          <h3 style="margin:0;">
+            {{ m.name }}
+            {% if m.is_archived %}
+              <span class="badge warn">Archived</span>
+            {% elif m.status == 'hidden' %}
+              <span class="badge">Hidden</span>
+            {% elif m.status == 'active' %}
+              <span class="badge ok">Active</span>
+            {% endif %}
+          </h3>
+          <div class="muted" style="font-size:0.9em;">
+            created {{ m.created_at|date:"Y-m-d H:i" }}
+          </div>
+        </div>
+
+        {% with loc=m.current_location %}
+          {% if loc %}
+            <div class="muted" style="margin:6px 0;">
+              📍 <strong>Location:</strong> {{ loc.lat }}, {{ loc.lng }}
+            </div>
+          {% else %}
+            <div class="muted" style="margin:6px 0;">
+              📍 No verified location yet (needs 2 scans)
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        {% if m.description %}
+          <p style="margin:8px 0 12px;">{{ m.description|truncatechars:160 }}</p>
+        {% endif %}
+
+        <div class="row">
+          <a class="btn" href="{% url 'meowls:pdf_preview' m.slug %}">PDF</a>
+          <a class="link" href="{% url 'meowls:leaderboard' %}">Leaderboard</a>
+          <!-- Note: Meowl detail requires QR token; open the PDF and scan the QR to view the page. -->
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p>No meowls yet. {% if request.user.is_authenticated %}Be the first to <a href="{% url 'meowls:create' %}">create one</a>!{% endif %}</p>
+{% endif %}
+
+<style>
+.list { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 700px) { .list { grid-template-columns: 1fr 1fr; } }
+.card { padding:16px; border:1px solid var(--ui); border-radius:12px; background:#fff; }
+.card-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+.badge { padding:2px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:12px; }
+.badge.ok { background:#dcfce7; color:#065f46; }
+.badge.warn { background:#fee2e2; color:#991b1b; }
+</style>
+{% endblock %}
